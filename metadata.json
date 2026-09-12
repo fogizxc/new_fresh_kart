@@ -1,0 +1,6 @@
+{
+  "name": "FreshCart — Grocery POS & ERP",
+  "description": "FreshCart grocery ecommerce and shopkeeper ERP platform with POS, inventory, orders, and delivery management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
