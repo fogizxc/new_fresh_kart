@@ -34,6 +34,12 @@ function redirectToSuperAdmin() {
 function clearSession() {
   localStorage.removeItem('freshcart_token');
   localStorage.removeItem('freshcart_role');
+  sessionStorage.clear();
+  document.cookie.split(';').forEach(cookie => {
+    const name = cookie.split('=')[0]?.trim();
+    if (name) document.cookie = `${name}=; Max-Age=0; path=/`;
+  });
+  window.dispatchEvent(new Event('freshcart:auth_changed'));
 }
 
 function AppGate() {
