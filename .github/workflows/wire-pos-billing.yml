@@ -3,6 +3,7 @@ name: Wire POS Billing Tab
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -13,38 +14,57 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Patch operations dashboard
+        shell: bash
         run: |
-          python3 - <<'PY'
+          python3 <<'PY'
           from pathlib import Path
+
           path = Path('src/components/OperationsDashboard.tsx')
-          text = path.read_text()
+          text = path.read_text(encoding='utf-8')
           original = text
 
-          if "from './PosBilling'" not in text:
-              text = text.replace("import { ShopkeeperStaffManager } from './ShopkeeperStaffManager';", "import { ShopkeeperStaffManager } from './ShopkeeperStaffManager';\nimport { PosBilling } from './PosBilling';")
+          import_line = "import { PosBilling } from './PosBilling';"
+          if import_line not in text:
+              anchor = "import { ShopkeeperStaffManager } from './ShopkeeperStaffManager';"
+              if anchor not in text:
+                  raise SystemExit('Could not find OperationsDashboard import anchor')
+              text = text.replace(anchor, anchor + '\n' + import_line, 1)
 
-          text = text.replace("'orders'|'inventory'|'erp'|'fefo'|'staff'|'people'|'imports'", "'orders'|'inventory'|'erp'|'fefo'|'staff'|'people'|'imports'|'pos'")
+          old_type = "'orders'|'inventory'|'erp'|'fefo'|'staff'|'people'|'imports'"
+          new_type = old_type + "|'pos'"
+          if old_type in text and new_type not in text:
+              text = text.replace(old_type, new_type, 1)
 
-          marker = "<Tab active={tab==='orders'} onClick={()=>setTab('orders')}>Orders</Tab>"
-          if "setTab('pos')">POS & Billing</Tab>" not in text:
-              text = text.replace(marker, marker + "<Tab active={tab==='pos'} onClick={()=>setTab('pos')}>POS & Billing</Tab>")
+          tab_marker = "<Tab active={tab==='orders'} onClick={()=>setTab('orders')}>Orders</Tab>"
+          pos_tab = "<Tab active={tab==='pos'} onClick={()=>setTab('pos')}>POS & Billing</Tab>"
+          if pos_tab not in text:
+              if tab_marker not in text:
+                  raise SystemExit('Could not find operations tab anchor')
+              text = text.replace(tab_marker, tab_marker + pos_tab, 1)
 
-          render_marker = "{tab==='staff'&&<section className=\"mt-4\"><ShopkeeperStaffManager"
+          pos_render = "{tab==='pos'&&<PosBilling products={products} orders={orders} shopName={shops[0]?.name} shopAddress={shops[0]?.address} flash={flash}/> }"
+          pos_render = pos_render.replace('/> }', '/>}')
           if "{tab==='pos'&&<PosBilling" not in text:
-              insertion = "{tab==='pos'&&<PosBilling products={products} orders={orders} shopName={shops[0]?.name} shopAddress={shops[0]?.address} flash={flash}/>}\n  "
-              text = text.replace(render_marker, insertion + render_marker)
+              render_anchor = "{tab==='staff'&&<section className=\"mt-4\"><ShopkeeperStaffManager"
+              if render_anchor not in text:
+                  raise SystemExit('Could not find operations render anchor')
+              text = text.replace(render_anchor, pos_render + '\n  ' + render_anchor, 1)
 
           if text == original:
-              print('No changes needed')
+              print('POS wiring already present')
           else:
-              path.write_text(text)
+              path.write_text(text, encoding='utf-8')
+              print('POS wiring applied')
           PY
+
       - name: Commit patched dashboard
+        shell: bash
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add src/components/OperationsDashboard.tsx
           git diff --cached --quiet && exit 0
-          git commit -m 'feat: add POS and billing tab to operations dashboard'
+          git commit -m 'feat: connect POS and billing tab to operations dashboard'
           git push
