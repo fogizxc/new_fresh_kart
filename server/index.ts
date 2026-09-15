@@ -20,6 +20,9 @@ import { orderCancellation } from './routes/orderCancellation.ts';
 import { rewards } from './routes/rewards.ts';
 import { erpInventory } from './routes/erpInventory.ts';
 import { erpProcurement } from './routes/erpProcurement.ts';
+import { productionOps } from './routes/productionOps.ts';
+import { subscriptionsRouter } from './routes/subscriptions.ts';
+import { fefoExpiryRouter } from './routes/fefoExpiry.ts';
 import { connectMongo, closeMongo, mongoDb } from './db/mongodb.ts';
 import { rateLimit } from './middleware/rateLimit.ts';
 
@@ -37,7 +40,7 @@ app.get('/ready',(_req,res)=>{const ready=Boolean(mongoDb());return res.status(r
 app.get('/api/config',(_req,res)=>res.json({databaseConfigured:Boolean(process.env.MONGODB_URI),environment:process.env.NODE_ENV??'development'}));
 app.use(async(_req,_res,next)=>{if(!process.env.VERCEL||mongoDb())return next();try{await connectMongo()}catch(error){console.error('MongoDB request initialization failed:',error)}next()});
 app.use('/api',rateLimit({windowMs:60*1000,max:300})); app.use('/api/auth',rateLimit({windowMs:5*60*1000,max:200}),auth); app.use('/api/onboarding',rateLimit({windowMs:15*60*1000,max:60}),onboarding); app.use('/api/shopkeeper-portal',rateLimit({windowMs:60*1000,max:200}),shopkeeperPortal);
-app.use('/api',inventory); app.use('/api',orderCancellation); app.use('/api/features/rewards',rewards); app.use('/api/erp/inventory',erpInventory); app.use('/api/erp/procurement',erpProcurement); app.use('/api',api); app.use('/api/bootstrap',bootstrap); app.use('/api/customer',customer); app.use('/api/admin',admin); app.use('/api/shopkeeper',shopkeeper); app.use('/api/delivery',delivery); app.use('/api/ops',ops); app.use('/api/payments',paymentsRouter); app.use('/api/pickup',pickup); app.use('/api/features',features);
+app.use('/api',inventory); app.use('/api',orderCancellation); app.use('/api/features/rewards',rewards); app.use('/api/erp/inventory',erpInventory); app.use('/api/erp/procurement',erpProcurement); app.use('/api/subscriptions',subscriptionsRouter); app.use('/api/fefo-expiry',fefoExpiryRouter); app.use('/api',productionOps); app.use('/api',api); app.use('/api/bootstrap',bootstrap); app.use('/api/customer',customer); app.use('/api/admin',admin); app.use('/api/shopkeeper',shopkeeper); app.use('/api/delivery',delivery); app.use('/api/ops',ops); app.use('/api/payments',paymentsRouter); app.use('/api/pickup',pickup); app.use('/api/features',features);
 
 export async function startServer() {
   if (process.env.MONGODB_URI) {

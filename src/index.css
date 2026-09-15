@@ -1,1 +1,29 @@
 @import "tailwindcss";
+
+@keyframes slideRightLoop {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0%);
+  }
+}
+
+.animate-slide-loop {
+  display: flex;
+  width: max-content;
+  animation: slideRightLoop 28s linear infinite;
+  will-change: transform;
+}
+
+.animate-slide-loop:hover {
+  animation-play-state: paused;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

@@ -11,11 +11,13 @@ import {
   Phone,
   Power,
   RefreshCw,
+  Route,
   ShieldCheck,
   Truck,
   XCircle
 } from 'lucide-react';
 import { api, type ApiDeliveryQueueItem, type DeliveryStatus } from '../services/api';
+import { MultiStopRouteModal } from './MultiStopRouteModal';
 
 interface Props {
   flash: (message: string) => void;
@@ -42,6 +44,10 @@ export function DeliveryDashboard({ flash }: Props) {
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [activeTab, setActiveTab] = useState<'queue' | 'earnings'>('queue');
+  const [podOrderId, setPodOrderId] = useState<string | null>(null);
+  const [otpInput, setOtpInput] = useState('');
+  const [otpError, setOtpError] = useState('');
+  const [showRouteModal, setShowRouteModal] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -70,14 +76,19 @@ export function DeliveryDashboard({ flash }: Props) {
     void loadData();
   }, []);
 
-  const handleStatusUpdate = async (orderId: string, nextStatus: DeliveryStatus) => {
+  const handleStatusUpdate = async (orderId: string, nextStatus: DeliveryStatus, otp?: string) => {
     setBusyOrderId(orderId);
     try {
-      await api.deliveryStatus(orderId, nextStatus);
-      flash(`Order ${orderId} updated to ${nextStatus.replace(/_/g, ' ')}`);
+      await api.deliveryStatus(orderId, nextStatus, otp);
+      flash(`Order ${orderId} marked as ${nextStatus.replace(/_/g, ' ')}`);
+      setPodOrderId(null);
+      setOtpInput('');
+      setOtpError('');
       await loadData();
     } catch (e) {
-      flash(e instanceof Error ? e.message : 'Status update failed');
+      const msg = e instanceof Error ? e.message : 'Status update failed';
+      setOtpError(msg);
+      flash(msg);
     } finally {
       setBusyOrderId(null);
     }
@@ -118,6 +129,13 @@ export function DeliveryDashboard({ flash }: Props) {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowRouteModal(true)}
+            className="inline-flex items-center gap-1.5 rounded-2xl bg-[#d7ef8d] px-4 py-2.5 text-xs font-black text-[#173d2e] hover:bg-[#c6e174] shadow-sm transition"
+          >
+            <Route size={14} />
+            <span>AI Route Optimizer</span>
+          </button>
           <button
             onClick={() => setIsOnline(v => !v)}
             className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-xs font-extrabold shadow-sm transition ${
@@ -291,7 +309,15 @@ export function DeliveryDashboard({ flash }: Props) {
                       {action && (
                         <button
                           disabled={isBusy}
-                          onClick={() => void handleStatusUpdate(item.id, action.nextStatus)}
+                          onClick={() => {
+                            if (action.nextStatus === 'DELIVERED') {
+                              setPodOrderId(item.id);
+                              setOtpInput('');
+                              setOtpError('');
+                            } else {
+                              void handleStatusUpdate(item.id, action.nextStatus);
+                            }
+                          }}
                           className={`rounded-xl px-5 py-3 text-xs font-black text-white shadow-sm transition disabled:opacity-50 ${action.color}`}
                         >
                           {isBusy ? 'Updating...' : action.label}
@@ -363,6 +389,78 @@ export function DeliveryDashboard({ flash }: Props) {
           </div>
         </section>
       )}
+
+      {/* Proof of Delivery (POD) OTP Verification Modal */}
+      {podOrderId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-black/10">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eaf4ec] text-[#173d2e]">
+                <ShieldCheck size={26} className="text-emerald-700" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-[#173d2e]">Proof of Delivery (POD)</h3>
+                <p className="text-xs text-gray-500">Order ID: {podOrderId}</p>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-2xl bg-[#fafbf8] p-4 border border-black/5">
+              <label className="block text-xs font-black uppercase tracking-wider text-gray-600">
+                Enter 4-Digit Customer OTP
+              </label>
+              <input
+                type="text"
+                maxLength={6}
+                autoFocus
+                placeholder="e.g. 4921"
+                value={otpInput}
+                onChange={e => {
+                  setOtpInput(e.target.value.replace(/\D/g, ''));
+                  setOtpError('');
+                }}
+                className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-center font-mono text-2xl font-black tracking-widest text-[#173d2e] focus:border-[#173d2e] focus:outline-none"
+              />
+              <p className="mt-2 text-[11px] text-gray-500">
+                Ask the customer at the door to share their OTP shown on their FreshCart app screen or SMS.
+              </p>
+            </div>
+
+            {otpError && (
+              <div className="mt-3 rounded-xl bg-rose-50 p-3 text-xs font-bold text-rose-700 border border-rose-200">
+                {otpError}
+              </div>
+            )}
+
+            <div className="mt-5 flex gap-2">
+              <button
+                disabled={busyOrderId === podOrderId || !otpInput.trim()}
+                onClick={() => void handleStatusUpdate(podOrderId, 'DELIVERED', otpInput.trim())}
+                className="flex-1 rounded-xl bg-[#173d2e] py-3 text-xs font-black text-white hover:bg-[#20523e] transition disabled:opacity-50"
+              >
+                {busyOrderId === podOrderId ? 'Verifying OTP…' : 'Verify & Complete Delivery'}
+              </button>
+              <button
+                onClick={() => {
+                  setPodOrderId(null);
+                  setOtpInput('');
+                  setOtpError('');
+                }}
+                className="rounded-xl bg-gray-100 px-4 py-3 text-xs font-bold text-gray-600 hover:bg-gray-200 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* AI Multi-Stop Route Optimizer Modal */}
+      <MultiStopRouteModal
+        isOpen={showRouteModal}
+        onClose={() => setShowRouteModal(false)}
+        orders={queue as any}
+        flash={flash}
+      />
     </main>
   );
 }

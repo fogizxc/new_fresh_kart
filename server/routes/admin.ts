@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { products, orders, shops, users } from '../store/memoryStore';
+import { products, orders, shops, users, salesImports } from '../store/memoryStore';
 import { requireAuth, requireRole } from '../auth/middleware';
 import { mongoDb } from '../db/mongodb';
 import { createUser, findOrders, listShops, listStaff } from '../db/repositories';
@@ -63,6 +63,23 @@ admin.post('/onboarding/applications/:referenceId/assign-credential',async(req,r
   return res.status(201).json({credentials:{loginId,password,slot},user:{id:user.id,name:user.name,role:user.role,shopId:user.shopId},message:'Credential assigned. Share the 22-digit login ID and 22-digit password securely with the applicant.'});
 });
 admin.post('/onboarding/applications/:referenceId/activate',async(_req,res)=>res.status(410).json({error:'Manual username/password activation has been replaced. Approve the application, then assign a four-digit suffix from Partner Credentials.'}));
-admin.get('/sales-imports',async(_req,res)=>{const db=mongoDb();if(!db)return res.status(503).json({error:'MongoDB is required for CSV approvals'});const imports=await db.collection<SalesImport>('salesImports').find({status:'PENDING_REVIEW'}).sort({submittedAt:-1}).limit(100).project({csv:0}).toArray();return res.json(imports);});
+admin.get('/sales-imports', async (_req, res) => {
+  const db = mongoDb();
+  if (db) {
+    const imports = await db.collection<SalesImport>('salesImports')
+      .find({ status: 'PENDING_REVIEW' })
+      .sort({ submittedAt: -1 })
+      .limit(100)
+      .project({ csv: 0 })
+      .toArray();
+    return res.json(imports);
+  }
+  const pending = salesImports
+    .filter(s => s.status === 'PENDING_REVIEW')
+    .slice()
+    .reverse()
+    .map(({ csv: _omitted, ...rest }) => rest);
+  return res.json(pending);
+});
 admin.post('/sales-imports/:referenceId/approve',async(req,res)=>{try{return res.json(await approveSalesImport(req.params.referenceId,req.user!.id));}catch(error){return res.status(400).json({error:error instanceof Error?error.message:'Unable to approve CSV'});}});
 admin.post('/sales-imports/:referenceId/reject',async(req,res)=>{try{return res.json(await rejectSalesImport(req.params.referenceId,req.user!.id,typeof req.body?.reason==='string'?req.body.reason:'Rejected during admin review'));}catch(error){return res.status(400).json({error:error instanceof Error?error.message:'Unable to reject CSV'});}});

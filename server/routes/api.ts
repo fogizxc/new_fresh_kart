@@ -6,6 +6,7 @@ import { requireAuth } from '../auth/middleware.ts';
 import { listProducts, listShops, listAddresses, insertAddress, listDeliverySlots, createOrderTransaction, cancelOrderTransaction, findOrders, findUserById, updateOrderStatus } from '../db/repositories.ts';
 import { mongoDb } from '../db/mongodb.ts';
 import { calculateDistanceKm, calculateDeliveryEta, isShopOpen } from '../services/hyperlocal.ts';
+import { notifyOrderStatusChange } from '../services/notificationService.ts';
 
 export const api = Router();
 api.get('/health', (_req, res) => res.json({ ok: true, service: 'freshcart-api', timestamp: new Date().toISOString() }));
@@ -107,8 +108,37 @@ api.get('/orders', requireAuth, async (req, res) => {
   const shopId = isAdmin ? requestedShopId : req.user?.shopId;
   const customerId = req.user?.role === 'customer' ? req.user.id : undefined;
   const filter = { ...(status ? { status } : {}), ...(shopId ? { shopId } : {}), ...(customerId ? { customerId } : {}) };
-  if (mongoDb()) return res.json(await findOrders(filter));
-  return res.json(orders.filter(o => (!status || o.status === status) && (!shopId || o.shopId === shopId) && (!customerId || o.customerId === customerId)));
+
+  if (mongoDb()) {
+    const db = mongoDb()!;
+    const rawOrders = await findOrders(filter);
+    const enriched = await Promise.all(rawOrders.map(async o => {
+      const user = await db.collection<import('../models/domain').User>('users').findOne({ id: o.customerId });
+      const address = o.addressId ? await db.collection<Address>('addresses').findOne({ id: o.addressId }) : null;
+      return {
+        ...o,
+        customerName: (o as any).customerName || user?.name || 'Customer',
+        customerPhone: (o as any).customerPhone || user?.phone || '',
+        customerEmail: (o as any).customerEmail || user?.email || '',
+        address: (o as any).address || address || undefined
+      };
+    }));
+    return res.json(enriched);
+  }
+
+  const rawOrders = orders.filter(o => (!status || o.status === status) && (!shopId || o.shopId === shopId) && (!customerId || o.customerId === customerId));
+  const enriched = rawOrders.map(o => {
+    const user = users.find(u => u.id === o.customerId);
+    const address = addresses.find(a => a.id === o.addressId);
+    return {
+      ...o,
+      customerName: (o as any).customerName || user?.name || 'Customer',
+      customerPhone: (o as any).customerPhone || user?.phone || '',
+      customerEmail: (o as any).customerEmail || user?.email || '',
+      address: (o as any).address || address || undefined
+    };
+  });
+  return res.json(enriched);
 });
 
 api.post('/orders', requireAuth, async (req, res) => {
@@ -163,7 +193,10 @@ api.post('/orders', requireAuth, async (req, res) => {
     }
     const discountedSubtotal = Math.max(0, subtotal - discount);
     const deliveryFee = discountedSubtotal >= freeDeliveryMinimum ? 0 : configuredDeliveryFee;
-    const order = { id: orderId, customerId: req.user.id, shopId: shopId.trim(), items: completeItems, subtotal, discount, couponCode: appliedOffer?.code, deliveryFee, total: discountedSubtotal + deliveryFee, paymentMethod: paymentMethod as 'UPI' | 'CARD' | 'COD', fulfilment: 'DELIVERY' as const, status: 'PLACED' as const, createdAt: new Date().toISOString(), addressId: address.id, deliverySlotId, ...(idempotencyKey ? { idempotencyKey } : {}) };
+    const tip = Math.max(0, Number(req.body?.tip) || 0);
+    const handlingFee = 5;
+    const deliveryOtp = Math.floor(1000 + Math.random() * 9000).toString();
+    const order = { id: orderId, customerId: req.user.id, shopId: shopId.trim(), items: completeItems, subtotal, discount, couponCode: appliedOffer?.code, deliveryFee, tip, handlingFee, deliveryOtp, total: discountedSubtotal + deliveryFee + tip + handlingFee, paymentMethod: paymentMethod as 'UPI' | 'CARD' | 'COD', fulfilment: 'DELIVERY' as const, status: 'PLACED' as const, createdAt: new Date().toISOString(), addressId: address.id, deliverySlotId, ...(idempotencyKey ? { idempotencyKey } : {}) };
     const payment: Payment = { id: `pay-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, orderId: order.id, method: order.paymentMethod, status: 'PENDING', amount: order.total, provider: order.paymentMethod === 'COD' ? undefined : 'pending', createdAt: new Date().toISOString() };
     try {
       const result = await createOrderTransaction(order, payment, normalizedInput, deliverySlotId);
@@ -196,10 +229,14 @@ api.post('/orders', requireAuth, async (req, res) => {
   }
   const discountedSubtotal = Math.max(0, subtotal - discount);
   const deliveryFee = discountedSubtotal >= 499 ? 0 : 39;
-  const total = discountedSubtotal + deliveryFee;
-  const order = { id: `FC-${Date.now()}-${orders.length}`, customerId: req.user.id, shopId, items: orderItems, subtotal, discount, couponCode: couponCode ? couponCode.toUpperCase() : undefined, total, deliveryFee, paymentMethod: paymentMethod as 'UPI' | 'CARD' | 'COD', fulfilment: 'DELIVERY' as const, status: 'PLACED' as const, createdAt: new Date().toISOString(), addressId, deliverySlotId };
+  const tip = Math.max(0, Number(req.body?.tip) || 0);
+  const handlingFee = 5;
+  const deliveryOtp = Math.floor(1000 + Math.random() * 9000).toString();
+  const total = discountedSubtotal + deliveryFee + tip + handlingFee;
+  const order = { id: `FC-${Date.now()}-${orders.length}`, customerId: req.user.id, shopId, items: orderItems, subtotal, discount, couponCode: couponCode ? couponCode.toUpperCase() : undefined, total, deliveryFee, tip, handlingFee, deliveryOtp, paymentMethod: paymentMethod as 'UPI' | 'CARD' | 'COD', fulfilment: 'DELIVERY' as const, status: 'PLACED' as const, createdAt: new Date().toISOString(), addressId, deliverySlotId };
   orderItems.forEach(item => { const product = products.find(p => p.id === item.productId); if (product) product.stock -= item.quantity; }); slot.booked += 1; orders.unshift(order);
   const payment: Payment = { id: `pay-${Date.now()}`, orderId: order.id, method: order.paymentMethod, status: 'PENDING', amount: order.total, provider: order.paymentMethod === 'COD' ? undefined : 'pending', createdAt: new Date().toISOString() }; payments.push(payment);
+  void notifyOrderStatusChange(order as any, 'PLACED');
   return res.status(201).json({ ...order, address, deliverySlot: slot, payment });
 });
 
@@ -216,11 +253,11 @@ api.patch('/orders/:id/status', requireAuth, async (req, res) => {
       if (!canManage && !(req.user?.role === 'customer' && req.user.id === order.customerId)) return res.status(403).json({ error: 'Insufficient permissions' });
       if (order.status === 'CANCELLED') return res.json(order);
       if (!['PLACED', 'ACCEPTED'].includes(order.status)) return res.status(409).json({ error: 'Order can no longer be cancelled' });
-      try { const cancelled = await cancelOrderTransaction(order); return res.json(cancelled); }
+      try { const cancelled = await cancelOrderTransaction(order); void notifyOrderStatusChange(order as any, 'CANCELLED'); return res.json(cancelled); }
       catch (error) { return res.status(409).json({ error: error instanceof Error ? error.message : 'Unable to cancel order' }); }
     }
     if (!canManage) return res.status(403).json({ error: 'Insufficient permissions' });
-    try { const updated = await updateOrderStatus(order.id, status); return updated ? res.json(updated) : res.status(404).json({ error: 'Order not found' }); }
+    try { const updated = await updateOrderStatus(order.id, status); if (updated) void notifyOrderStatusChange(updated as any, status); return updated ? res.json(updated) : res.status(404).json({ error: 'Order not found' }); }
     catch (error) { return res.status(409).json({ error: error instanceof Error ? error.message : 'Unable to update order status' }); }
   }
   const order = orders.find(o => o.id === req.params.id); if (!order) return res.status(404).json({ error: 'Order not found' });
@@ -233,12 +270,12 @@ api.patch('/orders/:id/status', requireAuth, async (req, res) => {
     order.items.forEach(item => { const product = products.find(p => p.id === item.productId && p.shopId === order.shopId); if (product) product.stock += item.quantity; });
     const slot = deliverySlots.find(item => item.id === order.deliverySlotId); if (slot && slot.booked > 0) slot.booked -= 1;
     const payment = payments.find(item => item.orderId === order.id); if (payment) payment.status = order.paymentMethod === 'COD' ? 'CANCELLED' : 'REFUND_PENDING';
-    order.status = 'CANCELLED'; return res.json(order);
+    order.status = 'CANCELLED'; void notifyOrderStatusChange(order as any, 'CANCELLED'); return res.json(order);
   }
   if (!canManage) return res.status(403).json({ error: 'Insufficient permissions' });
   if (order.status === status) return res.json(order);
   if (!memoryTransitions[order.status].includes(status)) return res.status(409).json({ error: `Invalid order status transition: ${order.status} -> ${status}` });
-  order.status = status; return res.json(order);
+  order.status = status; void notifyOrderStatusChange(order as any, status); return res.json(order);
 });
 
 api.patch('/products/:id/stock', requireAuth, async (req, res) => {

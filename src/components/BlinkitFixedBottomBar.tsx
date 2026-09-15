@@ -1,7 +1,7 @@
 import React from 'react';
-import { Home, Search, ShoppingBag, Store, User, Sparkles } from 'lucide-react';
+import { Home, Store, CalendarSync, User, Menu } from 'lucide-react';
 
-export type BottomNavTab = 'home' | 'search' | 'merchants' | 'suggestions' | 'orders' | 'cart';
+export type BottomNavTab = 'home' | 'merchants' | 'subscriptions' | 'orders' | 'menu';
 
 interface BlinkitFixedBottomBarProps {
   currentTab: BottomNavTab;
@@ -34,20 +34,19 @@ export const BlinkitFixedBottomBar: React.FC<BlinkitFixedBottomBarProps> = ({
             </div>
             <button
               onClick={onOpenCart}
-              className="flex items-center gap-1.5 rounded-full bg-[#d7ef8d] px-3 py-1 text-xs font-black text-[#173d2e] hover:bg-[#cbe675]"
+              className="flex items-center gap-1.5 rounded-full bg-[#d7ef8d] px-3.5 py-1 text-xs font-black text-[#173d2e] hover:bg-[#cbe675] cursor-pointer"
             >
               <span>View Cart</span>
-              <ShoppingBag size={13} />
             </button>
           </div>
         </div>
       )}
 
-      {/* Main Tab Bar */}
+      {/* Main Tab Bar: Shop | Daily (or Merchants) | My Orders | Menu */}
       <div className="mx-auto flex max-w-[1500px] items-center justify-around px-2 py-2">
         <button
           onClick={() => onSelectTab('home')}
-          className={`flex flex-col items-center gap-1 px-3 py-1 text-[11px] font-extrabold transition-colors ${
+          className={`flex flex-col items-center gap-1 px-3 py-1 text-[11px] font-extrabold transition-colors cursor-pointer ${
             currentTab === 'home' ? 'text-[#173d2e]' : 'text-slate-400 hover:text-slate-600'
           }`}
         >
@@ -56,18 +55,8 @@ export const BlinkitFixedBottomBar: React.FC<BlinkitFixedBottomBarProps> = ({
         </button>
 
         <button
-          onClick={() => onSelectTab('search')}
-          className={`flex flex-col items-center gap-1 px-3 py-1 text-[11px] font-extrabold transition-colors ${
-            currentTab === 'search' ? 'text-[#173d2e]' : 'text-slate-400 hover:text-slate-600'
-          }`}
-        >
-          <Search size={20} className={currentTab === 'search' ? 'stroke-[2.5]' : ''} />
-          <span>Search</span>
-        </button>
-
-        <button
           onClick={() => onSelectTab('merchants')}
-          className={`flex flex-col items-center gap-1 px-3 py-1 text-[11px] font-extrabold transition-colors ${
+          className={`flex flex-col items-center gap-1 px-2 sm:px-3 py-1 text-[11px] font-extrabold transition-colors cursor-pointer ${
             currentTab === 'merchants' ? 'text-[#173d2e]' : 'text-slate-400 hover:text-slate-600'
           }`}
         >
@@ -75,24 +64,41 @@ export const BlinkitFixedBottomBar: React.FC<BlinkitFixedBottomBarProps> = ({
           <span>Merchants</span>
         </button>
 
+        {/* IN THE CENTER OF MERCHANT AND MY ORDER: DAILY SUBSCRIPTION */}
         <button
-          onClick={() => onSelectTab('suggestions')}
-          className={`flex flex-col items-center gap-1 px-3 py-1 text-[11px] font-extrabold transition-colors ${
-            currentTab === 'suggestions' ? 'text-[#173d2e]' : 'text-slate-400 hover:text-slate-600'
+          onClick={() => onSelectTab('subscriptions')}
+          className={`flex flex-col items-center gap-1 px-2 sm:px-3 py-1 text-[11px] font-extrabold transition-colors cursor-pointer relative ${
+            currentTab === 'subscriptions' ? 'text-[#173d2e]' : 'text-slate-400 hover:text-slate-600'
           }`}
+          title="Daily Morning Subscriptions"
         >
-          <Sparkles size={20} className={currentTab === 'suggestions' ? 'stroke-[2.5]' : ''} />
-          <span>Suggestions</span>
+          <div className="relative">
+            <CalendarSync size={20} className={currentTab === 'subscriptions' ? 'stroke-[2.5]' : ''} />
+            <span className="absolute -top-1 -right-1 flex h-2 w-2 rounded-full bg-emerald-500 ring-1 ring-white" />
+          </div>
+          <span className="hidden sm:inline whitespace-nowrap">Daily Subscription</span>
+          <span className="sm:hidden whitespace-nowrap">Daily Sub</span>
         </button>
 
         <button
           onClick={() => onSelectTab('orders')}
-          className={`flex flex-col items-center gap-1 px-3 py-1 text-[11px] font-extrabold transition-colors ${
+          className={`flex flex-col items-center gap-1 px-2 sm:px-3 py-1 text-[11px] font-extrabold transition-colors cursor-pointer ${
             currentTab === 'orders' ? 'text-[#173d2e]' : 'text-slate-400 hover:text-slate-600'
           }`}
         >
           <User size={20} className={currentTab === 'orders' ? 'stroke-[2.5]' : ''} />
           <span>My Orders</span>
+        </button>
+
+        {/* Menu button placed to the right side of My Orders */}
+        <button
+          onClick={() => onSelectTab('menu')}
+          className={`flex flex-col items-center gap-1 px-3 py-1 text-[11px] font-extrabold transition-colors cursor-pointer ${
+            currentTab === 'menu' ? 'text-[#173d2e]' : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <Menu size={20} className={currentTab === 'menu' ? 'stroke-[2.5]' : ''} />
+          <span>Menu</span>
         </button>
       </div>
     </div>

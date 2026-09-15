@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Check, ChevronRight, Clock3, Gift, MapPin, Package, RotateCcw, Truck, X } from 'lucide-react';
-import { api, type ApiOrder, type OrderStatus } from '../services/api';
+import { Check, ChevronRight, Clock3, FileText, Gift, MapPin, Package, RotateCcw, ShieldCheck, Truck, X } from 'lucide-react';
+import { api, type ApiOrder, type ApiShop, type OrderStatus } from '../services/api';
 import { addItemsToCart } from '../services/cart';
+import { LiveTrackingModal } from './LiveTrackingModal';
+import { GstInvoiceModal } from './GstInvoiceModal';
 
 const steps: { status: OrderStatus; label: string }[] = [
   { status: 'PLACED', label: 'Order placed' },
@@ -22,6 +24,8 @@ function statusLabel(status: OrderStatus) {
 export function CustomerOrders({ flash }: { flash: (message: string) => void }) {
   const [orders, setOrders] = useState<ApiOrder[]>([]);
   const [selected, setSelected] = useState<ApiOrder | null>(null);
+  const [invoiceOrder, setInvoiceOrder] = useState<ApiOrder | null>(null);
+  const [shops, setShops] = useState<ApiShop[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [unavailable, setUnavailable] = useState<string[]>([]);
@@ -31,12 +35,14 @@ export function CustomerOrders({ flash }: { flash: (message: string) => void }) 
   const load = async () => {
     setLoading(true);
     try {
-      const [orderData, rewardData] = await Promise.all([
+      const [orderData, rewardData, shopData] = await Promise.all([
         api.customerOrders(),
-        api.rewards().catch(() => null)
+        api.rewards().catch(() => null),
+        api.shops().catch(() => [])
       ]);
       setOrders(orderData);
       setReward(rewardData);
+      setShops(shopData);
       if (selected) setSelected(orderData.find(o => o.id === selected.id) ?? selected);
     } catch (e) {
       flash(e instanceof Error ? e.message : 'Unable to load your orders');
@@ -92,8 +98,30 @@ export function CustomerOrders({ flash }: { flash: (message: string) => void }) 
           <div className="flex items-start justify-between gap-3"><div><div className="text-xs font-bold text-[#89958e]">{order.id}</div><h3 className="mt-1 font-extrabold text-[#173d2e]">₹{order.total.toFixed(0)} · {order.items.length} item{order.items.length === 1 ? '' : 's'}</h3></div><span className={`rounded-full px-3 py-1 text-[10px] font-extrabold ${order.status === 'CANCELLED' ? 'bg-[#fff0f0] text-[#a34f4f]' : 'bg-[#eaf3eb] text-[#3c7358]'}`}>{statusLabel(order.status)}</span></div>
           <div className="mt-4 rounded-2xl bg-[#f7f8f3] p-4"><div className="flex items-center gap-2 text-xs font-bold text-[#64736b]"><Clock3 size={15}/> {new Date(order.createdAt).toLocaleString()}</div><div className="mt-4 flex items-center gap-1">{steps.slice(0, 7).map((step, index) => <div key={step.status} className={`h-1.5 flex-1 rounded-full ${rank(order.status) >= index && order.status !== 'CANCELLED' ? 'bg-[#4f8a69]' : 'bg-[#dce2dc]'}`} />)}</div><div className="mt-2 flex justify-between text-[9px] font-bold text-[#7c8982]"><span>Placed</span><span>Delivery</span><span>Done</span></div></div>
           <div className="mt-4 grid grid-cols-2 gap-2">{order.items.slice(0, 4).map(item => <div key={`${order.id}-${item.productId}`} className="rounded-xl bg-[#fafbf8] px-3 py-2 text-xs font-semibold text-[#526159]">{item.name} × {item.quantity}</div>)}</div>
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <button onClick={() => { setSelected(order); setUnavailable([]); }} className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-[#173d2e] px-4 py-3 text-xs font-extrabold text-white"><Truck size={15}/> {active ? 'Track order' : 'View order'} <ChevronRight size={14}/></button>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-black/5 pt-3">
+            <div className="flex items-center gap-2">
+              {order.deliveryOtp ? (
+                <div className="flex items-center gap-1.5 rounded-lg bg-[#eaf4ec] px-2.5 py-1 text-[11px] font-black text-[#173d2e] border border-[#cfe3d3]">
+                  <ShieldCheck size={13} className="text-emerald-700" />
+                  <span>Doorstep OTP: <strong className="font-mono">{order.deliveryOtp}</strong></span>
+                </div>
+              ) : order.pickupCode ? (
+                <div className="flex items-center gap-1.5 rounded-lg bg-[#eaf4ec] px-2.5 py-1 text-[11px] font-black text-[#173d2e] border border-[#cfe3d3]">
+                  <ShieldCheck size={13} className="text-emerald-700" />
+                  <span>Pickup: <strong className="font-mono">{order.pickupCode}</strong></span>
+                </div>
+              ) : null}
+            </div>
+            <button
+              onClick={() => setInvoiceOrder(order)}
+              className="inline-flex items-center gap-1 text-xs font-bold text-[#315245] hover:text-[#173d2e] underline decoration-dotted"
+            >
+              <FileText size={13} />
+              <span>Tax Invoice</span>
+            </button>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button onClick={() => { setSelected(order); setUnavailable([]); }} className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-[#173d2e] px-4 py-3 text-xs font-extrabold text-white"><Truck size={15}/> {active ? 'Track live order' : 'View order'} <ChevronRight size={14}/></button>
             {cancellable && (
               confirmCancelId === order.id ? (
                 <div className="flex items-center gap-1.5 rounded-xl bg-[#fff0f0] p-1 border border-[#f0d8d8]">
@@ -139,13 +167,21 @@ export function CustomerOrders({ flash }: { flash: (message: string) => void }) 
         </article>;
       })}</div>}
 
-    {selected && <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 p-4 backdrop-blur-sm" onClick={() => setSelected(null)}><div className="mx-auto mt-8 max-w-2xl rounded-[28px] bg-[#f7f7f2] p-5 shadow-2xl sm:p-7" onClick={e => e.stopPropagation()}>
-      <div className="flex items-center justify-between"><div><p className="text-xs font-extrabold uppercase tracking-[.16em] text-[#819087]">Live order tracking</p><h3 className="heading mt-1 text-2xl font-extrabold text-[#173d2e]">{selected.id}</h3></div><button onClick={() => setSelected(null)} className="rounded-xl bg-white p-2"><X size={18}/></button></div>
-      <div className="mt-6 rounded-3xl bg-white p-5">{selected.status === 'CANCELLED' ? <div className="flex items-center gap-3 rounded-2xl bg-[#fff1f1] p-4 text-sm font-bold text-[#a34f4f]"><X size={20}/> This order was cancelled.</div> : <div className="space-y-5">{steps.map((step, index) => { const done = rank(selected.status) >= index; const current = selected.status === step.status; return <div key={step.status} className="flex gap-3"><div className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${done ? 'bg-[#173d2e] text-white' : 'bg-[#e8ede8] text-[#8a978f]'}`}>{done ? <Check size={15}/> : <span className="text-xs font-bold">{index + 1}</span>}</div><div><div className={`text-sm font-extrabold ${current ? 'text-[#173d2e]' : 'text-[#526159]'}`}>{step.label}{current && <span className="ml-2 rounded-full bg-[#d7ef8d] px-2 py-1 text-[9px] uppercase text-[#315245]">Current</span>}</div>{current && <p className="mt-1 text-xs text-[#7a8881]">Your order is currently at this stage.</p>}</div></div>; })}</div>}
-      </div>
-      <div className="mt-4 rounded-3xl bg-[#173d2e] p-5 text-white"><div className="text-xs font-bold uppercase tracking-[.15em] text-white/55">Order summary</div><div className="mt-3 space-y-2 text-sm">{selected.items.map(item => <div key={`${selected.id}-detail-${item.productId}`} className="flex justify-between gap-4"><span>{item.name} × {item.quantity}</span><span>₹{(item.unitPrice * item.quantity).toFixed(0)}</span></div>)}</div><div className="mt-4 flex justify-between border-t border-white/15 pt-3 text-lg font-extrabold"><span>Total</span><span>₹{selected.total.toFixed(0)}</span></div></div>
-      {unavailable.length > 0 && <div className="mt-4 rounded-2xl bg-[#fff6df] p-4 text-xs font-semibold text-[#876523]">Unavailable for reorder: {unavailable.join(', ')}</div>}
-      <button onClick={() => void reorder(selected)} disabled={busy === selected.id} className="mt-4 w-full rounded-2xl bg-[#d7ef8d] px-4 py-3 text-sm font-extrabold text-[#173d2e] disabled:opacity-50">{busy === selected.id ? 'Checking availability…' : 'Reorder this basket'}</button>
-    </div></div>}
+    {selected && (
+      <LiveTrackingModal
+        order={selected}
+        shop={shops.find(s => s.id === selected.shopId)}
+        onClose={() => setSelected(null)}
+        onOpenInvoice={() => setInvoiceOrder(selected)}
+      />
+    )}
+
+    {invoiceOrder && (
+      <GstInvoiceModal
+        order={invoiceOrder}
+        shop={shops.find(s => s.id === invoiceOrder.shopId)}
+        onClose={() => setInvoiceOrder(null)}
+      />
+    )}
   </section>;
 }

@@ -16,7 +16,7 @@ paymentsRouter.post('/create-order', requireAuth, async (req, res) => {
     const db = mongoDb()!;
     const order = await db.collection<Order>('orders').findOne({ id: orderId, customerId: req.user.id });
     if (!order) return res.status(404).json({ error: 'Order not found' });
-    if (order.paymentMethod === 'COD') return res.status(400).json({ error: 'COD orders do not require online payment' });
+    if (order.paymentMethod === 'COD' || (order.paymentMethod as string) === 'PAY_AT_SHOP') return res.status(400).json({ error: 'COD and in-store payment orders do not require online payment' });
     if (order.status === 'CANCELLED') return res.status(409).json({ error: 'Cancelled order cannot be paid' });
     const payment = await db.collection<Payment>('payments').findOne({ orderId });
     if (!payment) return res.status(404).json({ error: 'Payment record not found' });
@@ -32,7 +32,7 @@ paymentsRouter.post('/create-order', requireAuth, async (req, res) => {
   if (process.env.NODE_ENV === 'production') return res.status(503).json({ error: 'Payment service requires the production database' });
   const order = orders.find(item => item.id === orderId && item.customerId === req.user!.id);
   if (!order) return res.status(404).json({ error: 'Order not found' });
-  if (order.paymentMethod === 'COD') return res.status(400).json({ error: 'COD orders do not require online payment' });
+  if (order.paymentMethod === 'COD' || (order.paymentMethod as string) === 'PAY_AT_SHOP') return res.status(400).json({ error: 'COD and in-store payment orders do not require online payment' });
   const payment = payments.find(item => item.orderId === orderId);
   if (!payment) return res.status(404).json({ error: 'Payment record not found' });
   try {
@@ -106,8 +106,16 @@ paymentWebhook.post('/', async (req, res) => {
     else return res.status(200).json({ ok: true, ignored: true });
     if (paymentEntity?.id) update.providerPaymentId = paymentEntity.id;
     await db.collection<Payment>('payments').updateOne({ providerOrderId: razorpayOrderId }, { $set: update });
-  } else if (process.env.NODE_ENV === 'production') {
-    return res.status(503).json({ error: 'Payment webhook requires the production database' });
+  } else {
+    if (razorpayOrderId) {
+      const payment = payments.find(p => p.providerOrderId === razorpayOrderId);
+      if (payment) {
+        payment.provider = 'razorpay';
+        if (event === 'payment.captured' || event === 'order.paid') payment.status = 'PAID';
+        else if (event === 'payment.failed') payment.status = 'FAILED';
+        if (paymentEntity?.id) payment.providerPaymentId = paymentEntity.id;
+      }
+    }
   }
   return res.status(200).json({ ok: true });
 });
