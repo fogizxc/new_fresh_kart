@@ -13,15 +13,21 @@ import './index.css';
 type SessionRole = 'customer' | 'shopkeeper' | 'employee' | 'store_manager' | 'admin' | 'super_admin';
 
 function readRoleFromToken(): SessionRole {
+  const storedRole = localStorage.getItem('freshcart_role');
+  const validRoles: SessionRole[] = ['customer', 'shopkeeper', 'employee', 'store_manager', 'admin', 'super_admin'];
+  const fallback = validRoles.includes(storedRole as SessionRole) ? storedRole as SessionRole : 'customer';
   const token = localStorage.getItem('freshcart_token');
-  if (!token) return 'customer';
+  if (!token) return fallback;
+
   try {
-    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) as { role?: string };
-    const role = payload.role;
-    if (role === 'shopkeeper' || role === 'employee' || role === 'store_manager' || role === 'admin' || role === 'super_admin') return role;
-    return 'customer';
+    const encodedPayload = token.split('.')[1];
+    if (!encodedPayload) return fallback;
+    const normalized = encodedPayload.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = normalized + '='.repeat((4 - normalized.length % 4) % 4);
+    const payload = JSON.parse(atob(padded)) as { role?: string };
+    return validRoles.includes(payload.role as SessionRole) ? payload.role as SessionRole : fallback;
   } catch {
-    return 'customer';
+    return fallback;
   }
 }
 
