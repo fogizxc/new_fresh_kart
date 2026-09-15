@@ -13,7 +13,7 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Checkout repository
@@ -35,3 +35,6 @@ jobs:
 
       - name: Build application
         run: npm run build
+
+      - name: Build production Docker image
+        run: docker build --tag freshcart:ci .
