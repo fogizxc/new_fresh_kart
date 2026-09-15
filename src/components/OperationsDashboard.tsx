@@ -11,6 +11,7 @@ import { StockUpdateModal } from './StockUpdateModal';
 import { ClearInventoryModal } from './ClearInventoryModal';
 import { ShopkeeperInventoryExcel } from './ShopkeeperInventoryExcel';
 import { ShopkeeperStaffManager } from './ShopkeeperStaffManager';
+import { PosBilling } from './PosBilling';
 
 type Mode = 'shopkeeper' | 'admin';
 type Props = { mode: Mode; orders: ApiOrder[]; onRefresh: () => Promise<void>; flash: (message: string) => void };
@@ -19,7 +20,7 @@ type ImportRow = { referenceId:string; shopId:string; fileName:string; rowCount:
 async function scopedRequest<T>(path:string, options:RequestInit={}):Promise<T>{const token=localStorage.getItem('freshcart_token');const headers=new Headers(options.headers);headers.set('Content-Type','application/json');if(token)headers.set('Authorization',`Bearer ${token}`);const response=await fetch(`/api${path}`,{...options,headers});if(!response.ok){const body=await response.json().catch(()=>null) as {error?:string}|null;throw new Error(body?.error||`Request failed (${response.status})`);}return response.json() as Promise<T>;}
 
 export function OperationsDashboard({ mode, orders, onRefresh, flash }: Props) {
- const [products,setProducts]=useState<ApiProduct[]>([]); const [shops,setShops]=useState<ApiShop[]>([]); const [staff,setStaff]=useState<ApiUser[]>([]); const [notifications,setNotifications]=useState<ApiNotification[]>([]); const [attendance,setAttendance]=useState<ApiAttendance[]>([]); const [imports,setImports]=useState<ImportRow[]>([]); const [busy,setBusy]=useState<string|null>(null); const [tab,setTab]=useState<'orders'|'inventory'|'erp'|'fefo'|'staff'|'people'|'imports'>('orders');
+ const [products,setProducts]=useState<ApiProduct[]>([]); const [shops,setShops]=useState<ApiShop[]>([]); const [staff,setStaff]=useState<ApiUser[]>([]); const [notifications,setNotifications]=useState<ApiNotification[]>([]); const [attendance,setAttendance]=useState<ApiAttendance[]>([]); const [imports,setImports]=useState<ImportRow[]>([]); const [busy,setBusy]=useState<string|null>(null); const [tab,setTab]=useState<'orders'|'inventory'|'erp'|'fefo'|'staff'|'people'|'imports'|'pos'>('orders');
  const [inventoryView, setInventoryView] = useState<'excel' | 'cards'>('excel');
  const [showScanner, setShowScanner] = useState(false);
  const [showZReport, setShowZReport] = useState(false);
@@ -130,7 +131,8 @@ export function OperationsDashboard({ mode, orders, onRefresh, flash }: Props) {
     </div>
   </div>
   <section className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Kpi icon={<PackageCheck/>} label="Active orders" value={String(activeOrders.length)} sub="need attention"/><Kpi icon={<IndianRupee/>} label="Delivered sales" value={`₹${deliveredRevenue.toFixed(0)}`} sub="completed orders"/><Kpi icon={<AlertTriangle/>} label="Low stock" value={String(lowStock.length)} sub="at or below minimum"/><Kpi icon={<Users/>} label="Team" value={String(staff.length)} sub={mode==='admin'?'connected staff':'assigned staff'}/></section>
-  <div className="mt-7 flex gap-2 overflow-x-auto"><Tab active={tab==='orders'} onClick={()=>setTab('orders')}>Orders</Tab><Tab active={tab==='inventory'} onClick={()=>setTab('inventory')}>Inventory</Tab><Tab active={tab==='erp'} onClick={()=>setTab('erp')}>Supply Chain & ERP</Tab><Tab active={tab==='fefo'} onClick={()=>setTab('fefo')}>Expiry & FEFO Clearance</Tab><Tab active={tab==='staff'} onClick={()=>setTab('staff')}>Staff</Tab><Tab active={tab==='people'} onClick={()=>setTab('people')}>People & alerts</Tab><Tab active={tab==='imports'} onClick={()=>setTab('imports')}>{mode==='admin'?`CSV approvals ${imports.length?`(${imports.length})`:''}`:'Sales CSV'}</Tab></div>
+  <div className="mt-7 flex gap-2 overflow-x-auto"><Tab active={tab==='orders'} onClick={()=>setTab('orders')}>Orders</Tab><Tab active={tab==='pos'} onClick={()=>setTab('pos')}>POS & Billing</Tab><Tab active={tab==='inventory'} onClick={()=>setTab('inventory')}>Inventory</Tab><Tab active={tab==='erp'} onClick={()=>setTab('erp')}>Supply Chain & ERP</Tab><Tab active={tab==='fefo'} onClick={()=>setTab('fefo')}>Expiry & FEFO Clearance</Tab><Tab active={tab==='staff'} onClick={()=>setTab('staff')}>Staff</Tab><Tab active={tab==='people'} onClick={()=>setTab('people')}>People & alerts</Tab><Tab active={tab==='imports'} onClick={()=>setTab('imports')}>{mode==='admin'?`CSV approvals ${imports.length?`(${imports.length})`:''}`:'Sales CSV'}</Tab></div>
+  {tab==='pos'&&<PosBilling products={products} orders={orders} shopName={shops[0]?.name} shopAddress={shops[0]?.address} flash={flash}/>}
   {tab==='staff'&&<section className="mt-4"><ShopkeeperStaffManager flash={flash} mode={mode} shopName={shops[0]?.name} shopAddress={shops[0]?.address} /></section>}
   {tab==='erp'&&<section className="mt-4"><ErpWorkspace products={products} shops={shops} role={mode} flash={flash}/></section>}
   {tab==='fefo'&&<section className="mt-4"><FefoExpiryManager flash={flash}/></section>}
