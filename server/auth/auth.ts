@@ -25,20 +25,13 @@ function configuredOwnerAccount(): User | null {
 export async function signIn(identifier: string, password?: string): Promise<Session | null> {
   const normalized = identifier.trim().toLowerCase();
   let user: User | null = null;
-
-  // MongoDB is optional for local development and must never make configured
-  // owner credentials unusable when a serverless instance cannot reach Mongo.
   try {
     const matches = await Promise.all(loginRoles.map(role => findUser(normalized, role)));
     user = (matches.find(Boolean) as User | undefined) ?? null;
   } catch (error) {
     console.error('Database account lookup failed during login:', error);
   }
-
   if (!user) user = users.find(u => u.active && (u.email.toLowerCase() === normalized || u.phone === identifier.trim() || u.username?.toLowerCase() === normalized)) ?? null;
-
-  // Owner fallback is checked before returning an authentication-service error.
-  // This keeps the emergency/bootstrap super-admin login independent of Mongo.
   if (!user) {
     const owner = configuredOwnerAccount();
     if (owner && (owner.email === normalized || owner.phone === identifier.trim() || owner.username === normalized)) {
@@ -46,7 +39,6 @@ export async function signIn(identifier: string, password?: string): Promise<Ses
       user = owner;
     }
   }
-
   if (!user) return null;
   if (process.env.NODE_ENV === 'production' || user.passwordHash) {
     if (!password || !user.passwordHash || !verifyPassword(password, user.passwordHash)) return null;
@@ -67,7 +59,18 @@ export async function getUserFromToken(token?: string) {
   if (user) return { ...user, passwordHash: undefined };
   const owner = configuredOwnerAccount();
   if (owner && owner.id === claims.sub && claims.role === 'super_admin') return { ...owner, passwordHash: undefined };
-  return null;
+  // Vercel functions are stateless; a valid signed token may be checked by a
+  // different instance from the one that created it. Preserve that session.
+  return {
+    id: claims.sub,
+    name: 'FreshCart User',
+    email: '',
+    phone: '',
+    role: claims.role,
+    shopId: claims.shopId,
+    active: true,
+    passwordHash: undefined,
+  } as User;
 }
 
 export async function getSession(token?: string): Promise<Session | null> {
