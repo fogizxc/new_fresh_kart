@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import type { Role } from '../models/domain.ts';
 import { getUserFromToken } from './auth.ts';
+import { roleHasPermission, type Permission } from './permissions.ts';
 
 declare global {
   namespace Express {
@@ -25,6 +26,16 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 export function requireRole(...roles: Role[]) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user || !roles.includes(req.user.role)) return res.status(403).json({ error: 'Insufficient permissions' });
+    next();
+  };
+}
+
+/** Require a fine-grained capability in addition to authentication. */
+export function requirePermission(permission: Permission) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user || !roleHasPermission(req.user.role, permission)) {
+      return res.status(403).json({ error: 'Insufficient permissions', requiredPermission: permission });
+    }
     next();
   };
 }
