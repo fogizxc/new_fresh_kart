@@ -1,0 +1,50 @@
+name: Wire POS Billing Tab
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  wire-pos:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch operations dashboard
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('src/components/OperationsDashboard.tsx')
+          text = path.read_text()
+          original = text
+
+          if "from './PosBilling'" not in text:
+              text = text.replace("import { ShopkeeperStaffManager } from './ShopkeeperStaffManager';", "import { ShopkeeperStaffManager } from './ShopkeeperStaffManager';\nimport { PosBilling } from './PosBilling';")
+
+          text = text.replace("'orders'|'inventory'|'erp'|'fefo'|'staff'|'people'|'imports'", "'orders'|'inventory'|'erp'|'fefo'|'staff'|'people'|'imports'|'pos'")
+
+          marker = "<Tab active={tab==='orders'} onClick={()=>setTab('orders')}>Orders</Tab>"
+          if "setTab('pos')">POS & Billing</Tab>" not in text:
+              text = text.replace(marker, marker + "<Tab active={tab==='pos'} onClick={()=>setTab('pos')}>POS & Billing</Tab>")
+
+          render_marker = "{tab==='staff'&&<section className=\"mt-4\"><ShopkeeperStaffManager"
+          if "{tab==='pos'&&<PosBilling" not in text:
+              insertion = "{tab==='pos'&&<PosBilling products={products} orders={orders} shopName={shops[0]?.name} shopAddress={shops[0]?.address} flash={flash}/>}\n  "
+              text = text.replace(render_marker, insertion + render_marker)
+
+          if text == original:
+              print('No changes needed')
+          else:
+              path.write_text(text)
+          PY
+      - name: Commit patched dashboard
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/components/OperationsDashboard.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m 'feat: add POS and billing tab to operations dashboard'
+          git push
