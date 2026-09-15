@@ -26,46 +26,6 @@ export function AuthScreen({ onAuthenticated }: AuthScreenProps) {
     <style>{`@keyframes freshcartTomatoWalk{0%{transform:translateX(-56px)}100%{transform:translateX(calc(100vw - 16px))}}@media (min-width:1024px){@keyframes freshcartTomatoWalk{0%{transform:translateX(-56px)}100%{transform:translateX(930px)}}}`}</style>
     <section className="hidden bg-[#173d2e] p-10 text-white lg:flex lg:flex-col lg:justify-between"><div><div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10"><Leaf size={22}/></div><span className="text-xl font-extrabold">FreshCart</span></div><div className="mt-20 max-w-md"><p className="text-xs font-extrabold uppercase tracking-[.2em] text-[#b9d9bf]">Fresh • local • fast</p><h1 className="heading mt-4 text-5xl font-extrabold leading-tight">One platform for customers, stores and delivery teams.</h1><p className="mt-5 text-sm leading-6 text-[#d6e5da]">Shop fresh produce, manage store operations, coordinate delivery and run the grocery business from one secure workspace.</p></div></div><p className="text-xs text-[#b9d9bf]">Secure accounts • Automatic role-based access • FreshCart ERP</p></section>
     <section className="p-6 sm:p-10 lg:p-12"><div className="mx-auto flex h-full max-w-md flex-col"><div className="flex items-center gap-3 lg:hidden"><div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#173d2e] text-lg">🌿</div><span className="text-lg font-extrabold text-[#173d2e]">FreshCart</span></div><div className="mt-10 lg:mt-4"><p className="text-xs font-extrabold uppercase tracking-[.16em] text-[#819087]">Secure workspace</p><h2 className="heading mt-2 text-3xl font-extrabold text-[#173d2e]">{mode==='login'?'Welcome back':'Create your account'}</h2></div>
-      <div className="mt-6">
-        <p className="text-[11px] font-bold uppercase tracking-wider text-[#7a8a81]">Demo Accounts (Quick Select)</p>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          <button
-            type="button"
-            onClick={() => { setIdentifier('riya@example.com'); setPassword('Password123'); setMode('login'); }}
-            className="rounded-lg border border-[#cbe0d3] bg-[#eef6f1] px-2.5 py-1 text-xs font-semibold text-[#1f4a38] transition hover:bg-[#e0f0e6]"
-          >
-            🛒 Customer
-          </button>
-          <button
-            type="button"
-            onClick={() => { setIdentifier('arjun@greenleaf.local'); setPassword('Password123'); setMode('login'); }}
-            className="rounded-lg border border-[#cbe0d3] bg-[#eef6f1] px-2.5 py-1 text-xs font-semibold text-[#1f4a38] transition hover:bg-[#e0f0e6]"
-          >
-            🏪 Shopkeeper
-          </button>
-          <button
-            type="button"
-            onClick={() => { setIdentifier('kabir@greenleaf.local'); setPassword('Password123'); setMode('login'); }}
-            className="rounded-lg border border-[#cbe0d3] bg-[#eef6f1] px-2.5 py-1 text-xs font-semibold text-[#1f4a38] transition hover:bg-[#e0f0e6]"
-          >
-            🚚 Employee
-          </button>
-          <button
-            type="button"
-            onClick={() => { setIdentifier('admin@freshcart.local'); setPassword('Password123'); setMode('login'); }}
-            className="rounded-lg border border-[#cbe0d3] bg-[#eef6f1] px-2.5 py-1 text-xs font-semibold text-[#1f4a38] transition hover:bg-[#e0f0e6]"
-          >
-            ⚙️ Admin
-          </button>
-          <button
-            type="button"
-            onClick={() => { setIdentifier('superadmin@freshcart.local'); setPassword('Password123'); setMode('login'); }}
-            className="rounded-lg border border-[#cbe0d3] bg-[#eef6f1] px-2.5 py-1 text-xs font-semibold text-[#1f4a38] transition hover:bg-[#e0f0e6]"
-          >
-            👑 Super Admin
-          </button>
-        </div>
-      </div>
       <form onSubmit={submit} className="mt-4 space-y-4">{mode==='register'&&<><label className="block"><span className="mb-2 block text-xs font-bold text-[#52655b]">Full name</span><div className="relative"><UserRound className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa69f]" size={17}/><input required value={name} onChange={e=>setName(e.target.value)} className="w-full rounded-2xl border border-black/10 bg-[#fafbf8] py-3 pl-10 pr-4 text-sm outline-none focus:border-[#6f9f83]" placeholder="Your name"/></div></label><label className="block"><span className="mb-2 block text-xs font-bold text-[#52655b]">Email</span><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa69f]" size={17}/><input required type="email" value={email} onChange={e=>setEmail(e.target.value)} className="w-full rounded-2xl border border-black/10 bg-[#fafbf8] py-3 pl-10 pr-4 text-sm outline-none focus:border-[#6f9f83]" placeholder="you@example.com"/></div></label><label className="block"><span className="mb-2 block text-xs font-bold text-[#52655b]">Phone</span><div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa69f]" size={17}/><input required value={phone} onChange={e=>setPhone(e.target.value)} className="w-full rounded-2xl border border-black/10 bg-[#fafbf8] py-3 pl-10 pr-4 text-sm outline-none focus:border-[#6f9f83]" placeholder="10-digit mobile number"/></div></label></>}{mode==='login'&&<label className="block"><span className="mb-2 block text-xs font-bold text-[#52655b]">Email or phone</span><div className="relative"><Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa69f]" size={17}/><input required value={identifier} onChange={e=>setIdentifier(e.target.value)} className="w-full rounded-2xl border border-black/10 bg-[#fafbf8] py-3 pl-10 pr-4 text-sm outline-none focus:border-[#6f9f83]" placeholder="you@example.com or 10-digit phone"/></div></label>}<label className="block"><span className="mb-2 block text-xs font-bold text-[#52655b]">Password</span><div className="relative"><LockKeyhole className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9aa69f]" size={17}/><input required minLength={8} type={showPassword?'text':'password'} value={password} onChange={e=>setPassword(e.target.value)} className="w-full rounded-2xl border border-black/10 bg-[#fafbf8] py-3 pl-10 pr-11 text-sm outline-none focus:border-[#6f9f83]" placeholder="Enter your password"/><button type="button" onClick={()=>setShowPassword(v=>!v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#77867e]">{showPassword?<EyeOff size={17}/>:<Eye size={17}/>}</button></div></label>{mode==='register'&&<p className="rounded-2xl bg-[#f3f7ef] px-4 py-3 text-[11px] leading-5 text-[#5f7067]">Passwords must be at least 8 characters and contain letters and numbers.</p>}{error&&<div role="alert" className="rounded-2xl bg-[#fff0ed] px-4 py-3 text-xs font-semibold text-[#a14335]">{error}</div>}<button disabled={saving} className="flex w-full items-center justify-center rounded-2xl bg-[#173d2e] px-5 py-3.5 text-sm font-extrabold text-white transition hover:bg-[#24523e] disabled:opacity-50">{saving?'Please wait…':mode==='login'?'Sign in securely':'Create customer account'}{!saving&&<ArrowRight size={16} className="ml-2"/>}</button></form>
       <div className="mt-6"><div className="rounded-2xl border border-[#e8ede7] bg-[#fbfcfa] p-3.5"><div className="flex items-center justify-between gap-3"><div><p className="text-[10px] font-extrabold uppercase tracking-[.14em] text-[#819087]">Join FreshCart</p><p className="mt-1 text-xs font-semibold text-[#4f6258]">Build your business or career with us</p></div><Store size={18} className="text-[#4c8b67]"/></div><div className="mt-3 grid grid-cols-2 gap-2"><button type="button" onClick={()=>setPartnerType('shopkeeper')} className="rounded-xl border border-[#d8e3d9] bg-white px-3 py-2.5 text-xs font-extrabold text-[#315b43] transition hover:-translate-y-0.5 hover:border-[#9abd9e] hover:bg-[#f4f8f2]">Shopkeeper / Store</button><button type="button" onClick={()=>setPartnerType('employee')} className="rounded-xl border border-[#d8e3d9] bg-white px-3 py-2.5 text-xs font-extrabold text-[#315b43] transition hover:-translate-y-0.5 hover:border-[#9abd9e] hover:bg-[#f4f8f2]">Employee / Delivery</button></div><div className="mt-3 border-t border-[#e8ede7] pt-3 text-center text-xs text-[#7a8981]">{mode==='login'?"Don't have a customer account?":"Already have an account?"} <button type="button" onClick={()=>switchMode(mode==='login'?'register':'login')} className="font-extrabold text-[#356c51]">{mode==='login'?'Create one':'Sign in'}</button></div></div>
         <div className="mt-4 flex items-center justify-center gap-2"><SocialLink label="YouTube"><YoutubeIcon/></SocialLink><SocialLink label="Instagram"><InstagramIcon/></SocialLink><SocialLink label="Facebook"><FacebookIcon/></SocialLink><SocialLink label="X"><XIcon/></SocialLink><SocialLink label="LinkedIn"><LinkedinIcon/></SocialLink><SocialLink label="WhatsApp"><WhatsAppIcon/></SocialLink></div><div className="mt-2 text-center text-[10px] font-semibold tracking-wide text-[#a0aaa4]">FreshCart • Fresh groceries, delivered simply</div></div>
