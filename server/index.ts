@@ -32,7 +32,15 @@ const isProduction = process.env.NODE_ENV === 'production';
 const clientOrigin = process.env.CLIENT_ORIGIN;
 app.disable('x-powered-by'); app.set('trust proxy', 1);
 const allowedOrigins = clientOrigin?.split(',').map(origin => origin.trim()).filter(Boolean) ?? [];
-app.use(cors({ origin: (_origin, callback) => callback(null, true), credentials: true }));
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    if (!isProduction && allowedOrigins.length === 0 && /^https?:\/\/localhost(?::\d+)?$/.test(origin)) return callback(null, true);
+    return callback(new Error('CORS origin not allowed'));
+  },
+  credentials: true,
+}));
 app.use((_req,res,next)=>{res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','strict-origin-when-cross-origin');res.setHeader('Permissions-Policy','camera=(), microphone=(), geolocation=()');res.setHeader('Strict-Transport-Security','max-age=31536000; includeSubDomains');next();});
 app.use('/api/payments/webhook',express.raw({type:'application/json',limit:'1mb'}),paymentWebhook); app.use(express.json({limit:'2mb'}));
 app.get('/health',(_req,res)=>res.status(200).json({status:'ok',service:'freshcart-api'})); app.get('/api',(_req,res)=>res.status(200).json({ok:true,service:'freshcart-api',message:'API is running'}));
