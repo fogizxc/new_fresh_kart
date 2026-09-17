@@ -5,7 +5,6 @@ import { signToken, verifyToken } from './jwt.ts';
 import { hashPassword, verifyPassword } from './password.ts';
 
 export interface Session { token: string; user: User; expiresAt: number; }
-
 const loginRoles: Role[] = ['customer', 'shopkeeper', 'employee', 'store_manager', 'admin', 'super_admin'];
 
 function configuredOwnerAccount(): User | null {
@@ -53,23 +52,19 @@ export async function getUserFromToken(token?: string) {
   if (!claims) return null;
   try {
     const dbUser = await findUserById(claims.sub);
-    if (dbUser && dbUser.role === claims.role) return { ...dbUser, passwordHash: undefined };
-  } catch (error) { console.error('Database account lookup failed while validating session:', error); }
+    if (dbUser && dbUser.active && dbUser.role === claims.role) return { ...dbUser, passwordHash: undefined };
+    if (dbUser && (!dbUser.active || dbUser.role !== claims.role)) return null;
+  } catch (error) {
+    console.error('Database account lookup failed while validating session:', error);
+  }
   const user = users.find(u => u.active && u.id === claims.sub && u.role === claims.role);
   if (user) return { ...user, passwordHash: undefined };
   const owner = configuredOwnerAccount();
   if (owner && owner.id === claims.sub && claims.role === 'super_admin') return { ...owner, passwordHash: undefined };
-  // Vercel functions are stateless; a valid signed token may be checked by a
-  // different instance from the one that created it. Preserve that session.
+  if (process.env.NODE_ENV === 'production') return null;
   return {
-    id: claims.sub,
-    name: 'FreshCart User',
-    email: '',
-    phone: '',
-    role: claims.role,
-    shopId: claims.shopId,
-    active: true,
-    passwordHash: undefined,
+    id: claims.sub, name: 'FreshCart User', email: '', phone: '', role: claims.role,
+    shopId: claims.shopId, active: true, passwordHash: undefined,
   } as User;
 }
 
