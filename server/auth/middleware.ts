@@ -5,9 +5,7 @@ import { roleHasPermission, PERMISSIONS, type Permission } from './permissions.t
 import { mongoDb } from '../db/mongodb.ts';
 import { shops } from '../store/memoryStore.ts';
 
-declare global {
-  namespace Express { interface Request { user?: import('../models/domain.ts').User } }
-}
+declare global { namespace Express { interface Request { user?: import('../models/domain.ts').User } } }
 
 async function resolveShopId(user: import('../models/domain.ts').User) {
   if (user.shopId) return user.shopId;
@@ -28,9 +26,7 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
     const token = typeof authorization === 'string' ? authorization.replace(/^Bearer\s+/i, '') : undefined;
     const user = await getUserFromToken(token);
     if (!user) return res.status(401).json({ error: 'Authentication required' });
-    if (process.env.NODE_ENV === 'production' && !mongoDb() && ['customer', 'shopkeeper', 'store_manager', 'employee', 'admin', 'super_admin'].includes(user.role)) {
-      return res.status(503).json({ error: 'Authentication database is unavailable' });
-    }
+    if (process.env.NODE_ENV === 'production' && !mongoDb()) return res.status(503).json({ error: 'Authentication database is unavailable' });
     const shopId = await resolveShopId(user);
     if (shopId && !user.shopId) user.shopId = shopId;
     req.user = user;
@@ -41,36 +37,21 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   }
 }
 
-export function requireRole(...roles: Role[]) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user || !roles.includes(req.user.role)) return res.status(403).json({ error: 'Insufficient permissions' });
-    next();
-  };
-}
+export function requireRole(...roles: Role[]) { return (req: Request, res: Response, next: NextFunction) => { if (!req.user || !roles.includes(req.user.role)) return res.status(403).json({ error: 'Insufficient permissions' }); next(); }; }
+export function requirePermission(permission: Permission) { return (req: Request, res: Response, next: NextFunction) => { if (!req.user || !roleHasPermission(req.user.role, permission)) return res.status(403).json({ error: 'Insufficient permissions', requiredPermission: permission }); next(); }; }
 
-export function requirePermission(permission: Permission) {
-  return (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user || !roleHasPermission(req.user.role, permission)) return res.status(403).json({ error: 'Insufficient permissions', requiredPermission: permission });
-    next();
-  };
-}
-
-/** Route-aware authorization for the legacy shopkeeper portal router. */
 export function requirePortalPermission(req: Request, res: Response, next: NextFunction) {
   if (!req.user) return res.status(401).json({ error: 'Authentication required' });
   const path = req.path.toLowerCase();
   let permission: Permission = PERMISSIONS.VIEW_INVENTORY;
-  if (path.includes('/staff') || path.includes('/salary') || path.includes('/attendance')) {
-    permission = req.method === 'GET' ? PERMISSIONS.VIEW_PAYROLL : PERMISSIONS.MANAGE_STAFF;
-  } else if (path.includes('/payroll')) {
-    permission = req.method === 'GET' ? PERMISSIONS.VIEW_PAYROLL : PERMISSIONS.MANAGE_PAYROLL;
-  } else if (path.includes('/products')) {
+  if (path.includes('/attendance')) permission = PERMISSIONS.PROCESS_ORDERS;
+  else if (path.includes('/payroll')) permission = req.method === 'GET' ? PERMISSIONS.VIEW_PAYROLL : PERMISSIONS.MANAGE_PAYROLL;
+  else if (path.includes('/staff') || path.includes('/salary')) permission = req.method === 'GET' ? PERMISSIONS.MANAGE_STAFF : PERMISSIONS.MANAGE_STAFF;
+  else if (path.includes('/products')) {
     if (req.method === 'GET') permission = PERMISSIONS.VIEW_INVENTORY;
     else if (path.includes('/stock') || path.includes('/batch')) permission = PERMISSIONS.UPDATE_STOCK;
     else permission = PERMISSIONS.MANAGE_CATALOG;
-  } else if (path.includes('/orders')) {
-    permission = req.method === 'GET' ? PERMISSIONS.VIEW_OWN_SHOP_ORDERS : PERMISSIONS.PROCESS_ORDERS;
-  }
+  } else if (path.includes('/orders')) permission = req.method === 'GET' ? PERMISSIONS.VIEW_OWN_SHOP_ORDERS : PERMISSIONS.PROCESS_ORDERS;
   if (!roleHasPermission(req.user.role, permission)) return res.status(403).json({ error: 'Insufficient permissions', requiredPermission: permission });
   next();
 }
