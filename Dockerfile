@@ -2,7 +2,7 @@ FROM node:22-bookworm-slim AS build
 
 WORKDIR /app
 
-COPY package.json bun.lock ./
+COPY package.json ./
 RUN npm install --no-audit --no-fund
 
 COPY . .
