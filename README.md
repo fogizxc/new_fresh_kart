@@ -24,32 +24,20 @@ npm install
 npm run dev
 ```
 
-API only:
-
-```bash
-npm run server
-```
-
-Full local development:
-
-```bash
-npm run dev:full
-```
+The `dev` script starts the Express server, which also serves the built application after `npm run build`. For frontend-only development, run Vite separately with `npx vite` in another terminal.
 
 Copy `.env.example` to `.env`. For a persistent local environment, configure `MONGODB_URI`; the application can fall back to in-memory demo data during development.
 
 ## Production configuration
 
-Production startup intentionally fails closed unless these values are present:
+Production requires:
 
 - `NODE_ENV=production`
-- `PORT`
 - `CLIENT_ORIGIN`
 - `MONGODB_URI` and optional `MONGODB_DB`
 - `JWT_SECRET` with at least 32 characters
-- `RAZORPAY_KEY_ID`
-- `RAZORPAY_KEY_SECRET`
-- `RAZORPAY_WEBHOOK_SECRET`
+- Razorpay credentials when online payments are enabled
+- `SUPER_ADMIN_LOGIN_ID` and `SUPER_ADMIN_LOGIN_PASSWORD` for the owner account
 
 Use MongoDB Atlas or another MongoDB deployment that supports transactions/replica sets. Order placement reserves inventory and delivery capacity inside a MongoDB transaction.
 
@@ -84,10 +72,10 @@ docker build -t freshcart:local .
 Run with an environment file:
 
 ```bash
-docker run --env-file .env -p 4000:4000 freshcart:local
+docker run --env-file .env -p 3000:3000 freshcart:local
 ```
 
-The image serves the built frontend and Express API from the same process. The container health check uses `/health`.
+The image serves the built frontend and Express API from the same process on port `3000`.
 
 ## CI / release
 
