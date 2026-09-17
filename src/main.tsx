@@ -31,12 +31,6 @@ function readRoleFromToken(): SessionRole {
   }
 }
 
-function redirectToSuperAdmin() {
-  if (!window.location.pathname.startsWith('/super-admin')) {
-    window.location.assign('/super-admin');
-  }
-}
-
 function clearSession() {
   localStorage.removeItem('freshcart_token');
   localStorage.removeItem('freshcart_role');
