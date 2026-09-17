@@ -67,35 +67,26 @@ function AppGate() {
     void fetch('/api/health', { cache: 'no-store' }).catch(() => undefined);
   }, []);
 
-  useEffect(() => {
-    if (authenticated && readRoleFromToken() === 'super_admin' && !isSuperPortal) redirectToSuperAdmin();
-  }, [authenticated, isSuperPortal]);
-
   if (!authenticated) {
     return <AuthScreen onAuthenticated={() => {
       const role = readRoleFromToken();
-      if (role === 'super_admin') {
-        localStorage.setItem('freshcart_role', role);
-        redirectToSuperAdmin();
+      localStorage.setItem('freshcart_role', role === 'store_manager' ? 'shopkeeper' : role);
+      if (role === 'super_admin' && isSuperPortal) {
+        setAuthenticated(true);
         return;
       }
-      if (isSuperPortal) {
+      if (isSuperPortal && role !== 'super_admin') {
         clearSession();
         window.location.reload();
         return;
       }
-      localStorage.setItem('freshcart_role', role === 'store_manager' ? 'shopkeeper' : role);
       setAuthenticated(true);
     }} />;
   }
 
   const role = readRoleFromToken();
 
-  if (role === 'super_admin') {
-    if (!isSuperPortal) {
-      redirectToSuperAdmin();
-      return null;
-    }
+  if (role === 'super_admin' && isSuperPortal) {
     if (showAccounts) {
       return <div className="relative min-h-screen">
         <SuperAdminAccounts onLogout={() => { clearSession(); setAuthenticated(false); }} />
