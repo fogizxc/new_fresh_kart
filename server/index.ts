@@ -25,7 +25,6 @@ import { subscriptionsRouter } from './routes/subscriptions.ts';
 import { fefoExpiryRouter } from './routes/fefoExpiry.ts';
 import { connectMongo, closeMongo, mongoDb } from './db/mongodb.ts';
 import { rateLimit } from './middleware/rateLimit.ts';
-import { requirePortalPermission } from './auth/middleware.ts';
 
 export const app = express();
 const port = Number(process.env.STANDALONE_SERVER === 'true' && process.env.PORT ? process.env.PORT : 3000);
@@ -37,7 +36,7 @@ app.use(cors({ origin: (origin, callback) => { if (!origin) return callback(null
 app.use((_req,res,next)=>{res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','strict-origin-when-cross-origin');res.setHeader('Permissions-Policy','camera=(), microphone=(), geolocation=()');res.setHeader('Strict-Transport-Security','max-age=31536000; includeSubDomains');next();});
 app.use('/api/payments/webhook',express.raw({type:'application/json',limit:'1mb'}),paymentWebhook); app.use(express.json({limit:'2mb'}));
 app.get('/health',(_req,res)=>res.status(200).json({status:'ok',service:'freshcart-api'})); app.get('/api',(_req,res)=>res.status(200).json({ok:true,service:'freshcart-api',message:'API is running'}));
-app.get('/ready',(_req,res)=>{const ready=Boolean(mongoDb());return res.status(ready?200:503).json({status:ready?'ready':'not_ready',database:ready?'connected':'disconnected'}));
+app.get('/ready',(_req,res)=>{const ready=Boolean(mongoDb());return res.status(ready?200:503).json({status:ready?'ready':'not_ready',database:ready?'connected':'disconnected'});});
 app.get('/api/config',(_req,res)=>res.json({databaseConfigured:Boolean(process.env.MONGODB_URI),environment:process.env.NODE_ENV??'development'}));
 app.use(async(_req,_res,next)=>{if(!process.env.VERCEL||mongoDb())return next();try{await connectMongo()}catch(error){console.error('MongoDB request initialization failed:',error)}next()});
 app.use('/api',rateLimit({windowMs:60*1000,max:300})); app.use('/api/auth',rateLimit({windowMs:5*60*1000,max:60}),auth); app.use('/api/onboarding',rateLimit({windowMs:15*60*1000,max:60}),onboarding); app.use('/api/shopkeeper-portal',rateLimit({windowMs:60*1000,max:200}),shopkeeperPortal);
