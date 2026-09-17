@@ -25,6 +25,7 @@ import { subscriptionsRouter } from './routes/subscriptions.ts';
 import { fefoExpiryRouter } from './routes/fefoExpiry.ts';
 import { connectMongo, closeMongo, mongoDb } from './db/mongodb.ts';
 import { rateLimit } from './middleware/rateLimit.ts';
+import { requireAuth, requireRole, requirePortalPermission } from './auth/middleware.ts';
 
 export const app = express();
 const port = Number(process.env.STANDALONE_SERVER === 'true' && process.env.PORT ? process.env.PORT : 3000);
@@ -39,7 +40,8 @@ app.get('/health',(_req,res)=>res.status(200).json({status:'ok',service:'freshca
 app.get('/ready',(_req,res)=>{const ready=Boolean(mongoDb());return res.status(ready?200:503).json({status:ready?'ready':'not_ready',database:ready?'connected':'disconnected'});});
 app.get('/api/config',(_req,res)=>res.json({databaseConfigured:Boolean(process.env.MONGODB_URI),environment:process.env.NODE_ENV??'development'}));
 app.use(async(_req,_res,next)=>{if(!process.env.VERCEL||mongoDb())return next();try{await connectMongo()}catch(error){console.error('MongoDB request initialization failed:',error)}next()});
-app.use('/api',rateLimit({windowMs:60*1000,max:300})); app.use('/api/auth',rateLimit({windowMs:5*60*1000,max:60}),auth); app.use('/api/onboarding',rateLimit({windowMs:15*60*1000,max:60}),onboarding); app.use('/api/shopkeeper-portal',rateLimit({windowMs:60*1000,max:200}),shopkeeperPortal);
+app.use('/api',rateLimit({windowMs:60*1000,max:300})); app.use('/api/auth',rateLimit({windowMs:5*60*1000,max:60}),auth); app.use('/api/onboarding',rateLimit({windowMs:15*60*1000,max:60}),onboarding);
+app.use('/api/shopkeeper-portal', rateLimit({windowMs:60*1000,max:200}), requireAuth, requireRole('shopkeeper','store_manager','admin','super_admin'), requirePortalPermission, shopkeeperPortal);
 app.use('/api',invoices); app.use('/api',inventory); app.use('/api',orderCancellation); app.use('/api/features/rewards',rewards); app.use('/api/erp/inventory',erpInventory); app.use('/api/erp/procurement',erpProcurement); app.use('/api/subscriptions',subscriptionsRouter); app.use('/api/fefo-expiry',fefoExpiryRouter); app.use('/api',productionOps); app.use('/api',api); app.use('/api/bootstrap',bootstrap); app.use('/api/customer',customer); app.use('/api/admin',admin); app.use('/api/shopkeeper',shopkeeper); app.use('/api/delivery',delivery); app.use('/api/ops',ops); app.use('/api/payments',paymentsRouter); app.use('/api/pickup',pickup); app.use('/api/features',features);
 
 export async function startServer() { if (process.env.MONGODB_URI) { try { const db = await connectMongo(); if (db) console.log(`FreshCart MongoDB connected: ${db.databaseName}`); } catch (error) { console.warn('MongoDB connection failed, falling back to in-memory store:', error); } } const server = app.listen(port, '0.0.0.0', () => console.log(`FreshCart API listening on port ${port}`)); const shutdown = async () => { server.close(async () => { await closeMongo(); process.exit(0); }); }; process.once('SIGINT', shutdown); process.once('SIGTERM', shutdown); return server; }
